@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
-	"os"
 
 	"github.com/grqphical/cash/internal/cache"
 )
@@ -43,20 +43,20 @@ func (s *Server) handleConn(conn net.Conn) {
 		n, err := conn.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("client closed connection")
+				slog.Info("client closed connection", "remoteIP", conn.RemoteAddr().String())
 				return
 			}
-			fmt.Printf("error while reading packet: %s\n", err)
+			slog.Error("error while reading packet", "error", err)
 			continue
 		}
 		commandStr := string(buffer[:n])
 
 		commands, err := cache.ParseCommandsFromString(commandStr)
 		if err != nil {
-			fmt.Printf("error while parsing packet: %s\n", err)
+			slog.Error("error while parsing packet", "error", err, "remoteIP", conn.RemoteAddr().String())
 			_, err = conn.Write([]byte(err.Error() + "\n"))
 			if err != nil {
-				fmt.Printf("error while sending error packet: %s\n", err)
+				slog.Error("error while sending error packet", "error", err, "remoteIP", conn.RemoteAddr().String())
 			}
 			continue
 		}
@@ -66,10 +66,10 @@ func (s *Server) handleConn(conn net.Conn) {
 
 			dbErr := <-s.errChan
 			if dbErr.Kind() != cache.DBNoError {
-				fmt.Printf("error while running command: %s\n", dbErr.Error())
+				slog.Error("error while running command", "error", dbErr.Error(), "remoteIP", conn.RemoteAddr().String())
 				_, err = conn.Write([]byte(dbErr.Error() + "\n"))
 				if err != nil {
-					fmt.Printf("error while sending error packet: %s\n", err)
+					slog.Error("error while sending error packet", "error", err, "remoteIP", conn.RemoteAddr().String())
 				}
 				continue
 			}
@@ -78,7 +78,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 			_, err = conn.Write([]byte(output + "\n"))
 			if err != nil {
-				fmt.Printf("error while sending output packet: %s\n", err)
+				slog.Error("error while sending output packet", "error", err)
 				continue
 			}
 		}
@@ -89,7 +89,7 @@ func (s *Server) Listen() {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:", err)
+			slog.Error("unable to start cash", "error", err)
 			continue
 		}
 
@@ -99,4 +99,5 @@ func (s *Server) Listen() {
 
 func (s *Server) Close() {
 	s.listener.Close()
+	slog.Info("closing cash")
 }

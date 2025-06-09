@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"log/slog"
 	"net"
+	"os"
 
 	"github.com/grqphical/cash/internal/server"
 )
@@ -25,13 +28,27 @@ func main() {
 		return
 	}
 
+	logFile, err := os.OpenFile("log.json", os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		slog.Error("could not open log file", "error", err)
+		return
+	}
+	defer logFile.Close()
+
+	logWriter := io.MultiWriter(os.Stderr)
+	logger := slog.New(slog.NewJSONHandler(logWriter, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	slog.SetDefault(logger)
+
 	server, err := server.New(*portFlag, hostAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer server.Close()
 
-	fmt.Printf("starting cash on %s:%d\n", hostAddr, *portFlag)
+	slog.Info("starting cash", "host", hostAddr.String(), "port", *portFlag)
 	server.Listen()
 
 }
