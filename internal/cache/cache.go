@@ -16,6 +16,7 @@ func New() *Cache {
 	return &Cache{
 		values:      make(map[string]string),
 		expirations: make(map[string]time.Time),
+		mu:          &sync.Mutex{},
 	}
 }
 
@@ -23,6 +24,7 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 	for {
 		cmd := <-cmdChan
 
+		c.mu.Lock()
 		switch cmd.operation {
 		case OperationGet:
 			if len(cmd.args) != 1 {
@@ -34,6 +36,18 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			}
 
 			key := cmd.args[0]
+
+			expiration, expirationExists := c.expirations[key]
+			if expirationExists && time.Now().After(expiration) {
+				errChan <- DBError{
+					kind:    DBErrorExpiredKey,
+					message: fmt.Sprintf("'%s' has expired", key),
+				}
+
+				delete(c.values, key)
+				delete(c.expirations, key)
+				break
+			}
 
 			value, exists := c.values[key]
 
@@ -98,7 +112,7 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			if err != nil {
 				errChan <- DBError{
 					kind:    DBErrorInvalidRequest,
-					message: "invalid duration",
+					message: fmt.Sprintf("invalid duration: %s", err),
 				}
 				break
 			}
@@ -109,6 +123,21 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			}
 			outputChan <- "OK"
 		}
+		c.mu.Unlock()
+	}
+}
+
+func (c *Cache) runExpirationCleanup(ticker *time.Ticker) {
+	defer ticker.Stop()
+	for range ticker.C {
+		c.mu.Lock()
+		for key, expiration := range c.expirations {
+			if time.Now().After(expiration) {
+				delete(c.expirations, key)
+				delete(c.values, key)
+			}
+		}
+		c.mu.Unlock()
 	}
 }
 
@@ -118,6 +147,7 @@ func (c *Cache) Run() (cmdChan chan Command, resultChan chan string, errChan cha
 	errChan = make(chan DBError)
 
 	go c.runDBService(cmdChan, resultChan, errChan)
+	go c.runExpirationCleanup(time.NewTicker(time.Second))
 
 	return
 }

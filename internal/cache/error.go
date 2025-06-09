@@ -8,6 +8,7 @@ const (
 	DBErrorInvalidRequest  DBErrorType = "invalid request"
 	DBErrorKeyDoesNotExist             = "key does not exist"
 	DBNoError                          = "no error"
+	DBErrorExpiredKey                  = "expired key"
 )
 
 type DBError struct {
