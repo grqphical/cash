@@ -62,6 +62,10 @@ func (s *Server) handleConn(conn net.Conn) {
 		dbErr := <-s.errChan
 		if dbErr.Kind() != cache.DBNoError {
 			fmt.Printf("error while running command: %s\n", dbErr.Error())
+			_, err = conn.Write([]byte(dbErr.Error() + "\n"))
+			if err != nil {
+				fmt.Printf("error while sending error packet: %s\n", err)
+			}
 			continue
 		}
 

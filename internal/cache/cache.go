@@ -61,6 +61,22 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			}
 			outputChan <- "OK"
 			break
+		case OperationDelete:
+			if len(cmd.args) != 1 {
+				errChan <- DBError{
+					kind:    DBErrorInvalidRequest,
+					message: "missing parameter 'key'",
+				}
+				break
+			}
+
+			key := cmd.args[0]
+			delete(c.values, key)
+
+			errChan <- DBError{
+				kind: DBNoError,
+			}
+			outputChan <- "OK"
 		}
 	}
 }
