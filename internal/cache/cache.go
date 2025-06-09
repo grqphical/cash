@@ -1,19 +1,23 @@
 package cache
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 type Cache struct {
-	mu              *sync.Mutex
-	expirations     map[string]time.Time
-	values          map[string]string
-	persistanceFile *os.File
+	mu               *sync.Mutex
+	expirations      map[string]time.Time
+	values           map[string]string
+	compressionIndex map[string]interface{}
+	persistanceFile  *os.File
 }
 
 func New(persistenceFileName string) *Cache {
@@ -29,10 +33,11 @@ func New(persistenceFileName string) *Cache {
 	}
 
 	return &Cache{
-		values:          make(map[string]string),
-		expirations:     make(map[string]time.Time),
-		mu:              &sync.Mutex{},
-		persistanceFile: persistanceFile,
+		values:           make(map[string]string),
+		compressionIndex: make(map[string]interface{}),
+		expirations:      make(map[string]time.Time),
+		mu:               &sync.Mutex{},
+		persistanceFile:  persistanceFile,
 	}
 
 }
@@ -73,12 +78,39 @@ func (c *Cache) Get(args []string, errChan chan DBError, outputChan chan string)
 	errChan <- DBError{
 		kind: DBNoError,
 	}
+
+	if _, ok := c.compressionIndex[key]; ok {
+		buf := bytes.NewBuffer([]byte(value))
+		gz, err := gzip.NewReader(buf)
+		if err != nil {
+			errChan <- DBError{
+				kind:    DBErrorCompressionFailure,
+				message: err.Error(),
+			}
+			return false
+		}
+		defer gz.Close()
+
+		var out bytes.Buffer
+		_, err = io.Copy(&out, gz)
+		if err != nil {
+			errChan <- DBError{
+				kind:    DBErrorCompressionFailure,
+				message: err.Error(),
+			}
+			return false
+		}
+
+		value = out.String()
+
+	}
+
 	outputChan <- value
 	return true
 }
 
 func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string) bool {
-	if len(args) != 2 {
+	if len(args) < 2 || len(args) > 3 {
 		errChan <- DBError{
 			kind:    DBErrorInvalidRequest,
 			message: "invalid number of parameters provided",
@@ -87,7 +119,37 @@ func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string)
 	}
 
 	key := args[0]
-	value := args[1]
+	var value string
+
+	if len(args) > 3 {
+		compression := args[2]
+		if strings.ToUpper(compression) == "COMPRESS" {
+			var buf bytes.Buffer
+			gz := gzip.NewWriter(&buf)
+			_, err := gz.Write([]byte(args[1]))
+			if err != nil {
+				errChan <- DBError{
+					kind:    DBErrorCompressionFailure,
+					message: err.Error(),
+				}
+				return false
+			}
+
+			if err := gz.Close(); err != nil {
+				errChan <- DBError{
+					kind:    DBErrorCompressionFailure,
+					message: err.Error(),
+				}
+				return false
+
+			}
+
+			value = buf.String()
+			c.compressionIndex[key] = struct{}{}
+		}
+	} else {
+		value = args[1]
+	}
 
 	c.values[key] = value
 	errChan <- DBError{

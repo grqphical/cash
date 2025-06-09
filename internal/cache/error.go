@@ -5,10 +5,11 @@ import "fmt"
 type DBErrorType = string
 
 const (
-	DBErrorInvalidRequest  DBErrorType = "invalid request"
-	DBErrorKeyDoesNotExist             = "key does not exist"
-	DBNoError                          = "no error"
-	DBErrorExpiredKey                  = "expired key"
+	DBErrorInvalidRequest     DBErrorType = "invalid request"
+	DBErrorKeyDoesNotExist                = "key does not exist"
+	DBNoError                             = "no error"
+	DBErrorExpiredKey                     = "expired key"
+	DBErrorCompressionFailure             = "compression failure"
 )
 
 type DBError struct {
