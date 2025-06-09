@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -15,7 +16,7 @@ const (
 	OperationExpires Operation = "EXPIRES"
 )
 
-var validOperations []Operation = []Operation{OperationGet, OperationSet, OperationDelete}
+var validOperations []Operation = []Operation{OperationGet, OperationSet, OperationDelete, OperationExpires}
 
 type Command struct {
 	operation Operation
@@ -34,7 +35,12 @@ func ParseCommandsFromString(commandsString string) ([]Command, error) {
 	var commands []Command = make([]Command, 0, len(commandsStringSplit))
 
 	for _, command := range commandsStringSplit {
-		args := strings.Split(strings.TrimSpace(command), " ")
+		command = strings.TrimSpace(command)
+		if command == "" {
+			continue // skip empty command fragments
+		}
+
+		args := strings.Split(command, " ")
 		if len(args) == 0 {
 			return nil, errors.New("empty command")
 		}

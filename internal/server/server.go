@@ -54,6 +54,10 @@ func (s *Server) handleConn(conn net.Conn) {
 		commands, err := cache.ParseCommandsFromString(commandStr)
 		if err != nil {
 			fmt.Printf("error while parsing packet: %s\n", err)
+			_, err = conn.Write([]byte(err.Error() + "\n"))
+			if err != nil {
+				fmt.Printf("error while sending error packet: %s\n", err)
+			}
 			continue
 		}
 

@@ -1,14 +1,21 @@
 package cache
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
 type Cache struct {
-	values map[string]string
+	mu          *sync.Mutex
+	expirations map[string]time.Time
+	values      map[string]string
 }
 
 func New() *Cache {
 	return &Cache{
-		values: make(map[string]string),
+		values:      make(map[string]string),
+		expirations: make(map[string]time.Time),
 	}
 }
 
@@ -73,6 +80,30 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			key := cmd.args[0]
 			delete(c.values, key)
 
+			errChan <- DBError{
+				kind: DBNoError,
+			}
+			outputChan <- "OK"
+		case OperationExpires:
+			if len(cmd.args) != 2 {
+				errChan <- DBError{
+					kind:    DBErrorInvalidRequest,
+					message: "invalid number of parameters provided",
+				}
+				break
+			}
+
+			key := cmd.args[0]
+			duration, err := time.ParseDuration(cmd.args[1] + "s")
+			if err != nil {
+				errChan <- DBError{
+					kind:    DBErrorInvalidRequest,
+					message: "invalid duration",
+				}
+				break
+			}
+
+			c.expirations[key] = time.Now().Add(duration)
 			errChan <- DBError{
 				kind: DBNoError,
 			}
