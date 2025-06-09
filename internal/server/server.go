@@ -51,30 +51,32 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		commandStr := string(buffer[:n])
 
-		command, err := cache.ParseCommandFromString(commandStr)
+		commands, err := cache.ParseCommandsFromString(commandStr)
 		if err != nil {
 			fmt.Printf("error while parsing packet: %s\n", err)
 			continue
 		}
 
-		s.cmdChan <- command
+		for _, command := range commands {
+			s.cmdChan <- command
 
-		dbErr := <-s.errChan
-		if dbErr.Kind() != cache.DBNoError {
-			fmt.Printf("error while running command: %s\n", dbErr.Error())
-			_, err = conn.Write([]byte(dbErr.Error() + "\n"))
-			if err != nil {
-				fmt.Printf("error while sending error packet: %s\n", err)
+			dbErr := <-s.errChan
+			if dbErr.Kind() != cache.DBNoError {
+				fmt.Printf("error while running command: %s\n", dbErr.Error())
+				_, err = conn.Write([]byte(dbErr.Error() + "\n"))
+				if err != nil {
+					fmt.Printf("error while sending error packet: %s\n", err)
+				}
+				continue
 			}
-			continue
-		}
 
-		output := <-s.outputChan
+			output := <-s.outputChan
 
-		_, err = conn.Write([]byte(output + "\n"))
-		if err != nil {
-			fmt.Printf("error while sending output packet: %s\n", err)
-			continue
+			_, err = conn.Write([]byte(output + "\n"))
+			if err != nil {
+				fmt.Printf("error while sending output packet: %s\n", err)
+				continue
+			}
 		}
 	}
 }

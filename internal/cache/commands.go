@@ -9,9 +9,10 @@ import (
 type Operation = string
 
 const (
-	OperationSet    Operation = "SET"
-	OperationGet    Operation = "GET"
-	OperationDelete Operation = "DELETE"
+	OperationSet     Operation = "SET"
+	OperationGet     Operation = "GET"
+	OperationDelete  Operation = "DELETE"
+	OperationExpires Operation = "EXPIRES"
 )
 
 var validOperations []Operation = []Operation{OperationGet, OperationSet, OperationDelete}
@@ -28,20 +29,27 @@ func NewCommand(operation Operation, args []string) Command {
 	}
 }
 
-func ParseCommandFromString(command string) (Command, error) {
-	args := strings.Split(strings.TrimSpace(command), " ")
-	if len(args) == 0 {
-		return Command{}, errors.New("empty command")
+func ParseCommandsFromString(commandsString string) ([]Command, error) {
+	commandsStringSplit := strings.Split(commandsString, ";")
+	var commands []Command = make([]Command, 0, len(commandsStringSplit))
+
+	for _, command := range commandsStringSplit {
+		args := strings.Split(strings.TrimSpace(command), " ")
+		if len(args) == 0 {
+			return nil, errors.New("empty command")
+		}
+
+		cmd := Operation(strings.ToUpper(args[0]))
+
+		if !slices.Contains(validOperations, cmd) {
+			return nil, errors.New("invalid operation")
+		}
+
+		commands = append(commands, Command{
+			operation: cmd,
+			args:      args[1:],
+		})
 	}
 
-	cmd := Operation(strings.ToUpper(args[0]))
-
-	if !slices.Contains(validOperations, cmd) {
-		return Command{}, errors.New("invalid operation")
-	}
-
-	return Command{
-		operation: cmd,
-		args:      args[1:],
-	}, nil
+	return commands, nil
 }
