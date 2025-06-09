@@ -10,14 +10,15 @@ import (
 )
 
 type Server struct {
-	cmdChan    chan cache.Command
-	outputChan chan string
-	errChan    chan cache.DBError
-	listener   net.Listener
+	cmdChan          chan cache.Command
+	outputChan       chan string
+	errChan          chan cache.DBError
+	listener         net.Listener
+	cacheCleanupFunc func()
 }
 
-func New(port int, hostAddr net.IP) (*Server, error) {
-	cache := cache.New()
+func New(port int, hostAddr net.IP, persistenceFileName string) (*Server, error) {
+	cache := cache.New(persistenceFileName)
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", hostAddr, port))
 	if err != nil {
 		return nil, err
@@ -26,10 +27,11 @@ func New(port int, hostAddr net.IP) (*Server, error) {
 	cmdChan, outputChan, errChan := cache.Run()
 
 	return &Server{
-		cmdChan,
-		outputChan,
-		errChan,
-		listener,
+		cmdChan:          cmdChan,
+		outputChan:       outputChan,
+		errChan:          errChan,
+		listener:         listener,
+		cacheCleanupFunc: cache.Cleanup,
 	}, nil
 }
 
@@ -99,5 +101,6 @@ func (s *Server) Listen() {
 
 func (s *Server) Close() {
 	s.listener.Close()
+	s.cacheCleanupFunc()
 	slog.Info("closing cash")
 }

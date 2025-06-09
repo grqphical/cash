@@ -58,3 +58,19 @@ func ParseCommandsFromString(commandsString string) ([]Command, error) {
 
 	return commands, nil
 }
+
+func (c Command) String() string {
+	builder := strings.Builder{}
+
+	builder.WriteString(c.operation)
+	builder.WriteRune(' ')
+
+	for _, arg := range c.args {
+		builder.WriteString(arg)
+		builder.WriteRune(' ')
+	}
+
+	builder.WriteRune(';')
+
+	return builder.String()
+}
