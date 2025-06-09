@@ -38,7 +38,28 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 				break
 			}
 
+			errChan <- DBError{
+				kind: DBNoError,
+			}
 			outputChan <- value
+			break
+		case OperationSet:
+			if len(cmd.args) != 2 {
+				errChan <- DBError{
+					kind:    DBErrorInvalidRequest,
+					message: "invalid number of parameters provided",
+				}
+				break
+			}
+
+			key := cmd.args[0]
+			value := cmd.args[1]
+
+			c.values[key] = value
+			errChan <- DBError{
+				kind: DBNoError,
+			}
+			outputChan <- "OK"
 			break
 		}
 	}
