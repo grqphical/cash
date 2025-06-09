@@ -17,10 +17,15 @@ type Cache struct {
 }
 
 func New(persistenceFileName string) *Cache {
-	persistanceFile, err := os.OpenFile(persistenceFileName, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		slog.Error("unable to open persistance file", "error", err)
-		os.Exit(1)
+	var persistanceFile *os.File
+	var err error
+
+	if persistenceFileName != "" {
+		persistanceFile, err = os.OpenFile(persistenceFileName, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			slog.Error("unable to open persistance file", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	return &Cache{
@@ -139,42 +144,44 @@ func (c *Cache) Expires(args []string, errChan chan DBError, outputChan chan str
 }
 
 func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errChan chan DBError) {
-	c.mu.Lock()
-	c.persistanceFile.Seek(0, io.SeekStart)
-	persistedData, err := io.ReadAll(c.persistanceFile)
-	if err != nil {
-		slog.Error("unable to read persistance file", "error", err)
-	} else {
-		persistedCommands, err := ParseCommandsFromString(string(persistedData))
+	if c.persistanceFile != nil {
+		c.mu.Lock()
+		c.persistanceFile.Seek(0, io.SeekStart)
+		persistedData, err := io.ReadAll(c.persistanceFile)
 		if err != nil {
-			slog.Error("unable to parse persisted commands", "error", err)
-		}
-
-		for _, cmd := range persistedCommands {
-			switch cmd.operation {
-			case OperationGet:
-				c.Get(cmd.args, errChan, outputChan)
-				break
-			case OperationSet:
-				c.Set(cmd.args, errChan, outputChan)
-				break
-			case OperationDelete:
-				c.Delete(cmd.args, errChan, outputChan)
-				break
-			case OperationExpires:
-				c.Expires(cmd.args, errChan, outputChan)
-				break
+			slog.Error("unable to read persistance file", "error", err)
+		} else {
+			persistedCommands, err := ParseCommandsFromString(string(persistedData))
+			if err != nil {
+				slog.Error("unable to parse persisted commands", "error", err)
 			}
 
-			err := <-errChan
-			if err.kind != DBNoError {
-				slog.Error("error while running persisted command", "error", err)
-			}
-			<-outputChan
+			for _, cmd := range persistedCommands {
+				switch cmd.operation {
+				case OperationGet:
+					c.Get(cmd.args, errChan, outputChan)
+					break
+				case OperationSet:
+					c.Set(cmd.args, errChan, outputChan)
+					break
+				case OperationDelete:
+					c.Delete(cmd.args, errChan, outputChan)
+					break
+				case OperationExpires:
+					c.Expires(cmd.args, errChan, outputChan)
+					break
+				}
 
+				err := <-errChan
+				if err.kind != DBNoError {
+					slog.Error("error while running persisted command", "error", err)
+				}
+				<-outputChan
+
+			}
 		}
+		c.mu.Unlock()
 	}
-	c.mu.Unlock()
 
 	for {
 		cmd := <-cmdChan

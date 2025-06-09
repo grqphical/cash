@@ -17,7 +17,7 @@ const version string = "1.0.0"
 func main() {
 	verFlag := flag.Bool("version", false, "Prints the version of cash")
 	portFlag := flag.Int("port", 6400, "Port to run cash on")
-	persistenceFileName := flag.String("persistenceFileName", "cache.cashlog", "File to persist data to")
+	persistenceFileName := flag.String("file", "cache.cashlog", "File to persist data to")
 
 	var hostAddr net.IP
 	flag.TextVar(&hostAddr, "host", net.IPv4(0, 0, 0, 0), "IPv4 address to host cash on")
