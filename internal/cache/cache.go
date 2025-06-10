@@ -124,11 +124,11 @@ func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string)
 	var value string
 
 	if len(args) > 3 {
-		compression := strings.Join(args[1:], " ")
+		compression := args[1]
 		if strings.ToUpper(compression) == "COMPRESS" {
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
-			_, err := gz.Write([]byte(args[1]))
+			_, err := gz.Write([]byte(strings.Join(args[2:], " ")))
 			if err != nil {
 				errChan <- DBError{
 					kind:    DBErrorCompressionFailure,

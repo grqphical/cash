@@ -29,10 +29,10 @@ cash uses a simple query language similar to SQL. Multiple commands can be sent 
 ### Set data
 
 ```
-SET [key] [value] [?COMPRESS]
+SET [key] [?COMPRESS] [value]
 ```
 
-Sets ket to value, if COMPRESS is added as the third argument, the value will be compressed with gzip
+Sets ket to value, if COMPRESS is added as the second argument, the value will be compressed with gzip
 
 ### Get data
 
