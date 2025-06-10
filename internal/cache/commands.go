@@ -17,6 +17,7 @@ const (
 
 var validOperations []Operation = []Operation{OperationGet, OperationSet, OperationDelete, OperationExpires}
 
+// A command to run on the database
 type Command struct {
 	operation Operation
 	args      []string
@@ -29,6 +30,7 @@ func NewCommand(operation Operation, args []string) Command {
 	}
 }
 
+// Parses a string into commands it contains
 func ParseCommandsFromString(commandsString string) ([]Command, error) {
 	commandsStringSplit := strings.Split(commandsString, ";")
 	var commands []Command = make([]Command, 0, len(commandsStringSplit))

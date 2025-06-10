@@ -42,6 +42,7 @@ func New(persistenceFileName string) *Cache {
 
 }
 
+// Get operation for the database
 func (c *Cache) Get(args []string, errChan chan DBError, outputChan chan string) bool {
 	if len(args) != 1 {
 		errChan <- DBError{
@@ -109,6 +110,7 @@ func (c *Cache) Get(args []string, errChan chan DBError, outputChan chan string)
 	return true
 }
 
+// Set command for database
 func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string) bool {
 	if len(args) < 2 || len(args) > 3 {
 		errChan <- DBError{
@@ -159,6 +161,7 @@ func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string)
 	return true
 }
 
+// Delete command for database
 func (c *Cache) Delete(args []string, errChan chan DBError, outputChan chan string) bool {
 	if len(args) != 1 {
 		errChan <- DBError{
@@ -178,6 +181,7 @@ func (c *Cache) Delete(args []string, errChan chan DBError, outputChan chan stri
 	return true
 }
 
+// Expires command for database
 func (c *Cache) Expires(args []string, errChan chan DBError, outputChan chan string) bool {
 	if len(args) != 2 {
 		errChan <- DBError{
@@ -205,7 +209,31 @@ func (c *Cache) Expires(args []string, errChan chan DBError, outputChan chan str
 	return true
 }
 
+func (c *Cache) runCommand(cmd Command, errChan chan DBError, outputChan chan string) bool {
+	var success bool
+	c.mu.Lock()
+	switch cmd.operation {
+	case OperationGet:
+		success = c.Get(cmd.args, errChan, outputChan)
+		break
+	case OperationSet:
+		success = c.Set(cmd.args, errChan, outputChan)
+		break
+	case OperationDelete:
+		success = c.Delete(cmd.args, errChan, outputChan)
+		break
+	case OperationExpires:
+		success = c.Expires(cmd.args, errChan, outputChan)
+		break
+	}
+	c.mu.Unlock()
+
+	return success
+}
+
+// Runs the database on a background goroutine
 func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errChan chan DBError) {
+	// if a persistance file is set, read the commands from it so the data is persisted
 	if c.persistanceFile != nil {
 		c.mu.Lock()
 		c.persistanceFile.Seek(0, io.SeekStart)
@@ -219,20 +247,7 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 			}
 
 			for _, cmd := range persistedCommands {
-				switch cmd.operation {
-				case OperationGet:
-					c.Get(cmd.args, errChan, outputChan)
-					break
-				case OperationSet:
-					c.Set(cmd.args, errChan, outputChan)
-					break
-				case OperationDelete:
-					c.Delete(cmd.args, errChan, outputChan)
-					break
-				case OperationExpires:
-					c.Expires(cmd.args, errChan, outputChan)
-					break
-				}
+				c.runCommand(cmd, errChan, outputChan)
 
 				err := <-errChan
 				if err.kind != DBNoError {
@@ -247,31 +262,14 @@ func (c *Cache) runDBService(cmdChan chan Command, outputChan chan string, errCh
 
 	for {
 		cmd := <-cmdChan
-
-		var success bool
-		c.mu.Lock()
-		switch cmd.operation {
-		case OperationGet:
-			success = c.Get(cmd.args, errChan, outputChan)
-			break
-		case OperationSet:
-			success = c.Set(cmd.args, errChan, outputChan)
-			break
-		case OperationDelete:
-			success = c.Delete(cmd.args, errChan, outputChan)
-			break
-		case OperationExpires:
-			success = c.Expires(cmd.args, errChan, outputChan)
-			break
-		}
-		c.mu.Unlock()
-
+		success := c.runCommand(cmd, errChan, outputChan)
 		if success {
 			c.persistanceFile.WriteString(cmd.String())
 		}
 	}
 }
 
+// another background goroutine to cleanup any expired keys
 func (c *Cache) runExpirationCleanup(ticker *time.Ticker) {
 	defer ticker.Stop()
 	for range ticker.C {

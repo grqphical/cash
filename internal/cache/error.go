@@ -12,13 +12,14 @@ const (
 	DBErrorCompressionFailure             = "compression failure"
 )
 
+// Represents an error from the database
 type DBError struct {
 	kind    DBErrorType
 	message string
 }
 
 func (e DBError) Error() string {
-	return fmt.Sprintf("%s: %s", e.kind, e.message)
+	return fmt.Sprintf("ERROR '%s' MESSAGE '%s'", e.kind, e.message)
 }
 
 func (e DBError) Kind() DBErrorType {

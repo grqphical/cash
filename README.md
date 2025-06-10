@@ -22,7 +22,7 @@ CLI Flags:
 
 ## Query Syntax
 
-cash uses a simple query language similar to SQL
+cash uses a simple query language similar to SQL. Multiple commands can be sent in one packet, just seperate them with semicolons
 
 ### Set data
 
