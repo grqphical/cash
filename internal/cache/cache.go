@@ -112,7 +112,7 @@ func (c *Cache) Get(args []string, errChan chan DBError, outputChan chan string)
 
 // Set command for database
 func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string) bool {
-	if len(args) < 2 || len(args) > 3 {
+	if len(args) < 2 {
 		errChan <- DBError{
 			kind:    DBErrorInvalidRequest,
 			message: "invalid number of parameters provided",
@@ -124,7 +124,7 @@ func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string)
 	var value string
 
 	if len(args) > 3 {
-		compression := args[2]
+		compression := strings.Join(args[1:], " ")
 		if strings.ToUpper(compression) == "COMPRESS" {
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
@@ -150,7 +150,7 @@ func (c *Cache) Set(args []string, errChan chan DBError, outputChan chan string)
 			c.compressionIndex[key] = struct{}{}
 		}
 	} else {
-		value = args[1]
+		value = strings.Join(args[1:], " ")
 	}
 
 	c.values[key] = value
