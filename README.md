@@ -17,7 +17,9 @@ cash
 CLI Flags:
 
 `-port`: Port to use for server (default 6400)
+
 `-host`: IP to host on (default 0.0.0.0)
+
 `-file`: File to persist data to. Pass as empty string to disable persistent values (default cache.cashlog)
 
 ## Query Syntax
